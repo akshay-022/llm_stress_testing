@@ -15,6 +15,9 @@ interface Prompt {
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  const [correctPercentage, setCorrectPercentage] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
     const fetchPrompts = async () => {
@@ -35,6 +38,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   const handlePromptClick = (prompt: Prompt) => {
     setSelectedPrompt(prompt);
+    setCorrectPercentage(null); // Reset percentage when a new prompt is selected
+  };
+
+  const updateCorrectPercentage = (percentage: number) => {
+    setCorrectPercentage(percentage);
   };
 
   return (
@@ -66,6 +74,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             promptName={selectedPrompt.prompt_name}
             prompt={selectedPrompt.prompt}
             modelName={selectedPrompt.model_name}
+            correctPercentage={correctPercentage}
           />
         )}
         <main className="p-8 flex-1">
@@ -75,7 +84,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             transition={{ duration: 0.5 }}
           >
             {selectedPrompt ? (
-              <TestCaseTable promptId={selectedPrompt.id} />
+              <TestCaseTable
+                promptId={selectedPrompt.id}
+                updateCorrectPercentage={updateCorrectPercentage}
+              />
             ) : (
               children
             )}
