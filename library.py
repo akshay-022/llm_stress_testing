@@ -65,23 +65,16 @@ class LLMLogger:
 
         return parsed_result.is_correct, parsed_result.reason if not parsed_result.is_correct else None
 
-    def save_input(self, content: str, agent_name: str):
+    def save_input(self, inputs: str, agent_name: str, prompt: str):
+        
         if not self.do_db_actions:
             return None
         with self.app.app_context():
-            if not self.is_evaluate:
-                new_entry = TestCase(process_id=self.process_id, input=content, agent_name=agent_name)
-                db.session.add(new_entry)
-                db.session.commit()
-                return None
-            if self.is_evaluate:
-                self.evaluation_id = self.evaluation_id + 1
-                entry = TestCase.query.filter_by(process_id=self.evaluation_id).first()
-                if entry:
-                    return entry.input
-                else:
-                    print(f"No input found for evaluation_id {self.evaluation_id}")
-                    return None
+            prompt_id = self.save_prompt_to_table(prompt = prompt, agent_name = agent_name, model_name = "gemini-1.5-flash")
+            new_entry = TestCase(process_id=self.process_id, input=inputs, agent_name=agent_name, prompt_id = prompt_id)
+            db.session.add(new_entry)
+            db.session.commit()
+            return None
 
     def save_output(self, content: str, is_correct: bool, agent_name: str, reason_failure: str = None):
         if not self.do_db_actions:
@@ -136,14 +129,22 @@ class LLMLogger:
     def save_prompt_to_table(self, prompt, agent_name, model_name = None):
         if not self.do_db_actions:
             return None
+        # if exact same agent name and prompt already exists, return the id
+        with self.app.app_context():
+            existing_prompt = Prompt.query.filter_by(agent_name=agent_name, prompt = prompt).first()
+            if existing_prompt:
+                return existing_prompt.id
+
         # If agent_name exists in db already, find its model name
         with self.app.app_context():
             existing_entry = Prompt.query.filter_by(agent_name=agent_name).first()
             if existing_entry:
                 model_name = existing_entry.model_name
-            new_entry = Prompt(prompt=prompt, agent_name=agent_name, model_name=model_name, process_id=self.process_id)
-            db.session.add(new_entry)
-            db.session.commit()
+            existing_entry_complete = Prompt.query.filter_by(agent_name=agent_name, model_name=model_name, process_id=self.process_id, prompt = prompt).first()
+            if not existing_entry_complete:
+                new_entry = Prompt(prompt=prompt, agent_name=agent_name, model_name=model_name, process_id=self.process_id)
+                db.session.add(new_entry)
+                db.session.commit()
             return new_entry.id
 
     # This is for when you want to generate new outputs for the current prompt in code and all inputs to the same agent_name previously.
@@ -291,7 +292,7 @@ class LLMLogger:
         return prompt_to_return
 
 
-    def generate_remaining_input_outputs(self, agent_name: str, prompt_to_aid_generation: str = None):
+    def generate_remaining_input_outputs(self, agent_name: str, number_of_items_to_generate: int = 5, prompt_to_aid_generation: str = None):
         from openai import OpenAI
         import json
         import os
@@ -314,7 +315,7 @@ class LLMLogger:
             Given the following correct input-output pairs:
             {json.dumps(correct_pairs, indent=2)}
 
-            Generate 5 new input-output pairs that are similar in style and complexity, but different in content. 
+            Generate {number_of_items_to_generate} new input-output pairs that are similar in style and complexity, but different in content. 
             Ensure that the new pairs maintain the same pattern or logic as the given examples.
             Format your response as a Python list of dictionaries, each containing 'input' and 'output' keys.
             """

@@ -25,14 +25,21 @@ def add_sample_data():
         # Create the database tables if they don't exist
         db.create_all()
 
-        if not EvaluateOrNot.query.first():
+        # Check if sample data already exists
+        if EvaluateOrNot.query.first() is None:
             evaluate_or_not = EvaluateOrNot(is_evaluate=False, evaluation_id=1)
             db.session.add(evaluate_or_not)
-        #if not TestCase.query.first():
-        if True:
-            # Create a sample prompt
+
+        # Check if sample prompt already exists
+        existing_prompt = Prompt.query.filter_by(agent_name="customer_support").first()
+        if existing_prompt is None:
+            prompt = """
+            You are a helpful customer support assistant with tweet length response that responds based on the customer support documentation: {{EXAMPLE_CUSTOMER_SUPPORT_DOC}}. 
+            Your response should be empathetic and assuring that the team is taking the matter very seriously. 
+            Respond politely to the user's message: {{user_message}}."""
+            
             sample_prompt = Prompt(
-                prompt="You are a helpful customer support assistant. Respond to the following inquiry: {input}",
+                prompt=prompt,
                 agent_name="customer_support",
                 model_name="GPT-3.5",
                 process_id=1
@@ -40,27 +47,24 @@ def add_sample_data():
             db.session.add(sample_prompt)
             db.session.flush()  # This will assign an ID to sample_prompt
 
-            # Create a test case related to the prompt
-            sample_test_case = TestCase(
-                input="How can I reset my password?",
-                output="To reset your password, please follow these steps:\n1. Go to our website's login page.\n2. Click on the 'Forgot Password' link.\n3. Enter your email address.\n4. Check your email for a password reset link.\n5. Click the link and follow the instructions to set a new password.",
-                is_correct=True,
-                reason="Provides clear step-by-step instructions for password reset",
-                agent_name="customer_support",
-                process_id=1,
-                prompt_id=sample_prompt.id  # This establishes the relationship
-            )
-            db.session.add(sample_test_case)
-            # test_cases = [
-            #     TestCase(input='input1', output='output1', is_correct=True, reason='Correct output', agent_name='customer_support', prompts='{"prompt": "prompt1"}', process_id=1),
-            #     TestCase(input='input2', output='output2', is_correct=False, reason='Incorrect output', agent_name='customer_support', prompts='{"prompt": "prompt2"}', process_id=2),
-            #     # Add more test cases as needed
-            # ]
-            # db.session.add_all(test_cases)
+            # Check if sample test case already exists
+            existing_test_case = TestCase.query.filter_by(input="How can I reset my password?").first()
+            if existing_test_case is None:
+                sample_test_case = TestCase(
+                    input="How can I reset my password?",
+                    output="To reset your password, please follow these steps:\n1. Go to our website's login page.\n2. Click on the 'Forgot Password' link.\n3. Enter your email address.\n4. Check your email for a password reset link.\n5. Click the link and follow the instructions to set a new password.",
+                    is_correct=True,
+                    reason="Provides clear step-by-step instructions for password reset",
+                    agent_name="customer_support",
+                    process_id=1,
+                    prompt_id=sample_prompt.id
+                )
+                db.session.add(sample_test_case)
+
         # Commit the session to the database
         db.session.commit()
 
-        print("Sample data added to the database.")
+        print("Sample data added to the database (if it didn't exist already).")
 
 class TestCase(db.Model):
     __tablename__ = 'test_cases'
@@ -151,7 +155,7 @@ def get_prompts():
         {
             'id': prompt.id,
             'prompt': prompt.prompt,
-            'prompt_name': prompt.prompt_name,
+            'prompt_name': prompt.agent_name,
             'model_name': prompt.model_name,
             'process_id': prompt.process_id
         }
