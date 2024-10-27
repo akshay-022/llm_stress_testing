@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, Integer, String, Boolean
@@ -71,6 +71,36 @@ def get_test_cases():
     ]
     return jsonify(result)
 
+@app.route("/testcase/<int:id>", methods=["DELETE"])
+def delete_test_case(id):
+    test_case = TestCase.query.get_or_404(id)
+    db.session.delete(test_case)
+    db.session.commit()
+    return jsonify({"message": f"Test case {id} deleted successfully"}), 200
+
+@app.route("/testcase", methods=["POST"])
+def update_test_case():
+    data = request.json
+    print(data)
+    test_case = TestCase.query.get_or_404(data['id'])
+    
+    test_case.input = data['input']
+    test_case.output = data['output']
+    test_case.is_correct = data['is_correct']
+    test_case.reason = data['reason']
+    
+    db.session.commit()
+    
+    return jsonify({
+        'id': test_case.id,
+        'input': test_case.input,
+        'output': test_case.output,
+        'is_correct': test_case.is_correct,
+        'reason': test_case.reason
+    }), 200
+
+
+
 if __name__ == "__main__":
-    add_sample_data()
+    # add_sample_data()
     app.run(debug=True, port=9000)

@@ -10,7 +10,9 @@ import {
   RadioGroup,
   FormControlLabel,
   FormLabel,
+  IconButton,
 } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 interface TestCase {
   id: number;
@@ -34,7 +36,7 @@ const TestCaseTable: React.FC = () => {
       .catch((error) => {
         console.error("Failed to fetch test cases:", error);
       });
-  }, []);
+  }, [rowData]);
 
   const handleRowClick = (testCase: TestCase) => {
     setSelectedTestCase(testCase);
@@ -64,6 +66,12 @@ const TestCaseTable: React.FC = () => {
         .then((response) => response.json())
         .then((data) => {
           console.log("Successfully submitted:", data);
+          // Update the table with the new data
+          setRowData((prevData) =>
+            prevData.map((testCase) =>
+              testCase.id === data.id ? data : testCase
+            )
+          );
           setIsDrawerOpen(false);
         })
         .catch((error) => {
@@ -72,23 +80,65 @@ const TestCaseTable: React.FC = () => {
     }
   };
 
+  const handleDelete = (id: number) => {
+    fetch(`http://localhost:9000/testcase/${id}`, {
+      method: "DELETE",
+    })
+      .then((response) => {
+        if (response.ok) {
+          // Remove the deleted test case from the state
+          setRowData((prevData) =>
+            prevData.filter((testCase) => testCase.id !== id)
+          );
+        } else {
+          throw new Error("Failed to delete test case");
+        }
+      })
+      .catch((error) => {
+        console.error("Error deleting test case:", error);
+      });
+  };
+
   return (
     <div className="p-4">
-      <table className="min-w-full bg-gray-100 border border-gray-300">
+      <table className="min-w-full bg-gray-100 border border-gray-300 table-fixed">
         <thead>
           <tr>
-            <th className="py-2 px-4 border-b text-blue-800 text-left">ID</th>
-            <th className="py-2 px-4 border-b text-blue-800 text-left">
+            <th
+              className="py-2 px-4 border-b text-blue-800 text-left"
+              style={{ width: "10%" }}
+            >
+              ID
+            </th>
+            <th
+              className="py-2 px-4 border-b text-blue-800 text-left"
+              style={{ width: "30%" }}
+            >
               Input
             </th>
-            <th className="py-2 px-4 border-b text-blue-800 text-left">
+            <th
+              className="py-2 px-4 border-b text-blue-800 text-left"
+              style={{ width: "30%" }}
+            >
               Output
             </th>
-            <th className="py-2 px-4 border-b text-blue-800 text-left">
+            <th
+              className="py-2 px-4 border-b text-blue-800 text-left"
+              style={{ width: "10%" }}
+            >
               Is Correct
             </th>
-            <th className="py-2 px-4 border-b text-blue-800 text-left">
+            <th
+              className="py-2 px-4 border-b text-blue-800 text-left"
+              style={{ width: "20%" }}
+            >
               Reason
+            </th>
+            <th
+              className="py-2 px-4 border-b text-blue-800 text-left"
+              style={{ width: "10%" }}
+            >
+              Actions
             </th>
           </tr>
         </thead>
@@ -99,20 +149,49 @@ const TestCaseTable: React.FC = () => {
               className="hover:bg-gray-200 cursor-pointer"
               onClick={() => handleRowClick(testCase)}
             >
-              <td className="py-2 px-4 border-b text-gray-900">
+              <td
+                className="py-2 px-4 border-b text-gray-900"
+                style={{ width: "10%" }}
+              >
                 {testCase.id}
               </td>
-              <td className="py-2 px-4 border-b text-gray-900">
+              <td
+                className="py-2 px-4 border-b text-gray-900 break-words whitespace-normal"
+                style={{ width: "30%" }}
+              >
                 {testCase.input}
               </td>
-              <td className="py-2 px-4 border-b text-gray-900">
+              <td
+                className="py-2 px-4 border-b text-gray-900 break-words whitespace-normal"
+                style={{ width: "30%" }}
+              >
                 {testCase.output}
               </td>
-              <td className="py-2 px-4 border-b text-gray-900">
+              <td
+                className="py-2 px-4 border-b text-gray-900"
+                style={{ width: "10%" }}
+              >
                 {String(testCase.is_correct)}
               </td>
-              <td className="py-2 px-4 border-b text-gray-900">
+              <td
+                className="py-2 px-4 border-b text-gray-900 break-words whitespace-normal"
+                style={{ width: "20%" }}
+              >
                 {testCase.reason}
+              </td>
+              <td
+                className="py-2 px-4 border-b text-gray-900"
+                style={{ width: "10%" }}
+                onClick={(e) => e.stopPropagation()} // Prevent row click when clicking the delete button
+              >
+                <IconButton
+                  aria-label="delete"
+                  onClick={() => handleDelete(testCase.id)}
+                  size="small"
+                  color="error"
+                >
+                  <DeleteIcon />
+                </IconButton>
               </td>
             </tr>
           ))}
