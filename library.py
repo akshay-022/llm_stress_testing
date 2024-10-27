@@ -12,6 +12,7 @@ class LLMLogger:
         self.process_id = 0
         self.app = app
         self.is_evaluate, self.evaluation_id = self.get_evaluate()
+        self.do_db_actions = True
 
     def get_evaluate(self):
         with self.app.app_context():
@@ -64,10 +65,12 @@ class LLMLogger:
 
         return parsed_result.is_correct, parsed_result.reason if not parsed_result.is_correct else None
 
-    def save_input(self, content: str, system_name: str):
+    def save_input(self, content: str, agent_name: str):
+        if not self.do_db_actions:
+            return None
         with self.app.app_context():
             if not self.is_evaluate:
-                new_entry = TestCase(process_id=self.process_id, input=content, system_name=system_name)
+                new_entry = TestCase(process_id=self.process_id, input=content, agent_name=agent_name)
                 db.session.add(new_entry)
                 db.session.commit()
                 return None
@@ -80,9 +83,11 @@ class LLMLogger:
                     print(f"No input found for evaluation_id {self.evaluation_id}")
                     return None
 
-    def save_output(self, content: str, is_correct: bool, system_name: str, reason_failure: str = None):
+    def save_output(self, content: str, is_correct: bool, agent_name: str, reason_failure: str = None):
+        if not self.do_db_actions:
+            return None
         with self.app.app_context():
-            entry = TestCase.query.filter_by(process_id=self.process_id, system_name=system_name).first()
+            entry = TestCase.query.filter_by(process_id=self.process_id, agent_name=agent_name).first()
             
             if entry:
                 entry.output = content
@@ -93,17 +98,19 @@ class LLMLogger:
                     print(entry.input)
                     print("\nOutput:")
                     print(content)
-                    reason = reason_failure if reason_failure else input("\nWhy is this output incorrect? ")
+                    reason = reason_failure if reason_failure else "Did not provide a reason"#input("\nWhy is this output incorrect? ")
                     entry.reason = reason
                     print(f"Execution paused. Reason for incorrectness: {reason}")
                 db.session.commit()
             else:
-                print(f"No input found for run number {self.process_id} and system_name {system_name}")
+                print(f"No input found for run number {self.process_id} and agent_name {agent_name}")
 
     # This auto-assigns if a query is correct or not based on the LLM's judgement.
-    def save_output_using_llm(self, content: str, is_correct_query: str, system_name: str):
+    def save_output_using_llm(self, content: str, is_correct_query: str, agent_name: str):
+        if not self.do_db_actions:
+            return None
         with self.app.app_context():
-            entry = TestCase.query.filter_by(process_id=self.process_id, system_name=system_name).first()
+            entry = TestCase.query.filter_by(process_id=self.process_id, agent_name=agent_name).first()
             
             if entry:
                 entry.output = content
@@ -124,15 +131,24 @@ class LLMLogger:
                 
                 db.session.commit()
             else:
-                print(f"No input found for run number {self.process_id} and system_name {system_name}")
+                print(f"No input found for run number {self.process_id} and agent_name {agent_name}")
 
-    def save_prompt_to_table(self, prompt, llm_name, model_name):
+    def save_prompt_to_table(self, prompt, agent_name, model_name = None):
+        if not self.do_db_actions:
+            return None
+        # If agent_name exists in db already, find its model name
         with self.app.app_context():
-            new_entry = Prompt(prompt=prompt, llm_name=llm_name, model_name=model_name, process_id=self.process_id)
+            existing_entry = Prompt.query.filter_by(agent_name=agent_name).first()
+            if existing_entry:
+                model_name = existing_entry.model_name
+            new_entry = Prompt(prompt=prompt, agent_name=agent_name, model_name=model_name, process_id=self.process_id)
             db.session.add(new_entry)
-            db.session.commit()
+            return new_entry.id
 
-    def generate_new_prompt_outputs(self, running_function, current_coder_prompts):
+    # This is for when you want to generate new outputs for the current prompt in code and all inputs to the same agent_name previously.
+    def generate_new_prompt_outputs(self, running_function, prompt_id: int):
+        if not self.do_db_actions:
+            return None
         from langchain.chains.llm import LLMChain
         from langchain_openai.chat_models import ChatOpenAI
         from langchain.prompts import PromptTemplate
@@ -141,58 +157,60 @@ class LLMLogger:
 
         with self.app.app_context():
             entries = TestCase.query.order_by(TestCase.process_id, TestCase.id).all()
-            try:
-                for entry in entries:
-                    # Get distinct inputs
-                    distinct_inputs = set(entry.input for entry in entries if entry.input)
-                    
-                    for distinct_input in distinct_inputs:
-                        # Find the first entry with this input
-                        entry = next(e for e in entries if e.input == distinct_input)
-                        
-                        # Simulate input
-                        print(f"Processing distinct input for system {entry.system_name}")
-                        # Here you would typically call the function that processes this input
-                        new_output = running_function(inputs=distinct_input)
-                        new_entry = TestCase(process_id=self.process_id, input=distinct_input, output=new_output, system_name=entry.system_name, prompts=json.dumps(current_coder_prompts))
-                        db.session.add(new_entry)
-                        db.session.commit()
-            finally:
-                db.session.close()
+            # Get distinct inputs
+            distinct_inputs = set(entry.input for entry in entries if entry.input)
+            
+            for distinct_input in distinct_inputs:
+                # Find the first entry with this input
+                entry = next(e for e in entries if e.input == distinct_input)
+                
+                # Simulate input
+                print(f"Processing distinct input for system {entry.agent_name}")
+                # Here you would typically call the function that processes this input
+                self.do_db_actions = False
+                new_output = running_function(inputs=distinct_input)
+                self.do_db_actions = True
+                new_entry = TestCase(process_id=self.process_id, input=distinct_input, output=new_output, agent_name=entry.agent_name, prompt_id=prompt_id, ground_truth=entry.ground_truth if entry.ground_truth else None)
+                db.session.add(new_entry)
+            db.session.commit()
+            db.session.close()
 
-    def evaluate_latest_prompt_outputs(self, what_to_evaluate: str):
-        from langchain.llms import OpenAI
-        from langchain.prompts import PromptTemplate
+    def evaluate_latest_prompt_outputs(self, how_to_evaluate: str, who_to_evaluate: str, prompt_id: int):
+        if not self.do_db_actions:
+            return None
+        from langchain.chains.llm import LLMChain
         from langchain_openai.chat_models import ChatOpenAI
         from langchain.prompts import PromptTemplate
         from langchain.chains import LLMChain
 
         with self.app.app_context():
             entries = TestCase.query.order_by(TestCase.process_id, TestCase.id).all()
-
-            if not what_to_evaluate:
-                llm = OpenAI(temperature=0)
+            # Filter entries based on who_to_evaluate
+            entries = [entry for entry in entries if entry.agent_name == who_to_evaluate and entry.prompt_id == prompt_id]
+            if not how_to_evaluate:
+                llm = ChatOpenAI(temperature=0)
                 prompt_template = PromptTemplate(
                     input_variables=["original_output", "new_output"],
                     template="Compare these two outputs and determine if they are semantically equivalent:\n\nOriginal: {original_output}\n\nNew: {new_output}\n\nAre they equivalent? Answer with 'Yes' or 'No' and provide a brief explanation."
                 )
                 chain = LLMChain(llm=llm, prompt=prompt_template)
             else : 
-                llm = OpenAI(temperature=0)
+                llm = ChatOpenAI(temperature=0)
                 prompt_template = PromptTemplate(
                     input_variables=["original_output", "new_output"],
-                    template=what_to_evaluate + "\n\nHere are the original and new outputs:\n\nOriginal: {original_output}\n\nNew: {new_output} Answer the question with 'Yes' or 'No' and provide a brief explanation."
+                    template= how_to_evaluate + "\n\nHere are the original and new outputs:\n\nOriginal: {original_output}\n\nNew: {new_output} Answer the question with 'Yes' or 'No' and provide a brief explanation."
                 )
                 chain = LLMChain(llm=llm, prompt=prompt_template)
             try:
                 for entry in entries:
-                    if entry.input:
+                    # There should either be ground truth or a how_to_evaluate prompt
+                    if entry.input and (how_to_evaluate or entry.ground_truth):
                         new_output = entry.output
                         # Compare output
                         result = chain.run(original_output=entry.ground_truth, new_output=new_output)
                         is_equivalent = result.strip().lower().startswith('yes')
                         
-                        print(f"Process ID: {entry.process_id}, System: {entry.system_name}")
+                        print(f"Process ID: {entry.process_id}, System: {entry.agent_name}")
                         print(f"Original output: {entry.output}")
                         print(f"New output: {new_output}")
                         print(f"Equivalent: {is_equivalent}")
@@ -207,16 +225,28 @@ class LLMLogger:
 
             finally:
                 db.session.close()
-        
+    
+    def evaluate_complete_unit_test(self, running_function, prompt, who_to_evaluate: str, how_to_evaluate: str = None):
+        if not self.do_db_actions:
+            return None
+        prompt_id = self.save_prompt_to_table(prompt, who_to_evaluate, "gemini-1.5-flash")
+        self.generate_new_prompt_outputs(running_function, prompt_id)
+        self.evaluate_latest_prompt_outputs(how_to_evaluate, who_to_evaluate, prompt_id)
 
-    def get_best_prompts(self, system_name: str):
+    def get_reliability_score(self, agent_name: str, prompt_id: int):
+        with self.app.app_context():
+            entries = TestCase.query.filter_by(agent_name=agent_name, prompt_id=prompt_id).all()
+            correct_entries = [entry for entry in entries if entry.is_correct]
+            return 100 * len(correct_entries) / len(entries)
+
+    def get_best_prompts(self, agent_name: str):
         from langchain.llms import OpenAI
         from langchain.prompts import PromptTemplate
         from langchain.chains import LLMChain
         import json
 
         with self.app.app_context():
-            entries = TestCase.query.filter_by(system_name=system_name).all()
+            entries = TestCase.query.filter_by(agent_name=agent_name).all()
 
             correct_entries = []
             incorrect_entries = []
@@ -247,7 +277,7 @@ class LLMLogger:
             # And then maybe after this iteratively generate new prompts, see which ones it fails at the most, and especially focus on getting those right.
             return result
     
-    def generate_remaining_input_outputs(self, system_name: str, prompt_to_aid_generation: str = None):
+    def generate_remaining_input_outputs(self, agent_name: str, prompt_to_aid_generation: str = None):
         from openai import OpenAI
         import json
         import os
@@ -259,7 +289,7 @@ class LLMLogger:
         client = OpenAI(api_key=api_key)
 
         with self.app.app_context():
-            correct_entries = TestCase.query.filter_by(system_name=system_name, is_correct=True).all()
+            correct_entries = TestCase.query.filter_by(agent_name=agent_name, is_correct=True).all()
 
             if not correct_entries:
                 return []
@@ -298,7 +328,7 @@ class LLMLogger:
                 # Append all the new pairs to the database
                 for pair in new_pairs:
                     # No prompts key here means that these are llm generated samples, not based on a certain prompt.
-                    new_entry = TestCase(process_id=self.process_id, input=pair['input'], output=pair['output'], system_name=system_name)
+                    new_entry = TestCase(process_id=self.process_id, input=pair['input'], output=pair['output'], agent_name=agent_name)
                     db.session.add(new_entry)
                 db.session.commit()
 
@@ -314,7 +344,7 @@ def main():
 
     # Simulating multiple runs
     for run in range(1, 4):
-        system_name = f"system_{run}"
+        agent_name = f"system_{run}"
         input_text = f"Sample input for run {run}"
         output_text = f"Output for run {run}"
         prompts = {"system": "You are a helpful assistant", "user": "Process this input"}
@@ -327,14 +357,14 @@ def main():
         reason = "Correct output" if is_correct else "Incorrect output"
         
         # Save the test data
-        logger.save_test_data(input_text, output_text, prompts, is_correct, reason, system_name)
+        logger.save_test_data(input_text, output_text, prompts, is_correct, reason, agent_name)
 
     # Generate optimal prompts
-    optimal_prompts = logger.generate_optimal_prompts(system_name)
+    optimal_prompts = logger.generate_optimal_prompts(agent_name)
     print("Optimal prompts:", optimal_prompts)
 
     # Generate remaining input-outputs
-    new_pairs = logger.generate_remaining_input_outputs(system_name)
+    new_pairs = logger.generate_remaining_input_outputs(agent_name)
     print("New input-output pairs:", new_pairs)
 
     # Test the evaluate_or_not functionality

@@ -45,10 +45,14 @@ gemini_flash = genai.GenerativeModel("gemini-1.5-flash")
 
 
 def construct_customer_support_prompt(user_message: str) -> str:
-    return f"""
+    # Save prompt to logger here
+    prompt_to_return = f"""
 You are a helpful customer support assistant with tweet length response that responds based on the customer support documentation: {EXAMPLE_CUSTOMER_SUPPORT_DOC}. 
 Your response should be empathetic and assuring that the team is taking the matter very seriously. 
 Respond politely to the user's message: {user_message}."""
+
+    logger.save_prompt_to_table(prompt_to_return, "customer_support", "gemini-1.5-flash")
+    return prompt_to_return
 
 
 def answer_user_question(inputs: str) -> str:
@@ -66,4 +70,5 @@ if __name__ == "__main__":
     #logger.evaluate_latest_prompt_outputs("customer_support")
     #logger.generate_remaining_input_outputs("customer_support")
 
-    logger.generate_new_prompt_outputs(answer_user_question, "5")
+    #logger.evaluate_complete_unit_test(answer_user_question, "customer_support", "Is the output kind and polite?")
+    print(logger.get_reliability_score("customer_support", 1))

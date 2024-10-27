@@ -33,7 +33,7 @@ def add_sample_data():
             # Create a sample prompt
             sample_prompt = Prompt(
                 prompt="You are a helpful customer support assistant. Respond to the following inquiry: {input}",
-                prompt_name="customer_support",
+                agent_name="customer_support",
                 model_name="GPT-3.5",
                 process_id=1
             )
@@ -46,14 +46,14 @@ def add_sample_data():
                 output="To reset your password, please follow these steps:\n1. Go to our website's login page.\n2. Click on the 'Forgot Password' link.\n3. Enter your email address.\n4. Check your email for a password reset link.\n5. Click the link and follow the instructions to set a new password.",
                 is_correct=True,
                 reason="Provides clear step-by-step instructions for password reset",
-                system_name="customer_support",
+                agent_name="customer_support",
                 process_id=1,
                 prompt_id=sample_prompt.id  # This establishes the relationship
             )
             db.session.add(sample_test_case)
             # test_cases = [
-            #     TestCase(input='input1', output='output1', is_correct=True, reason='Correct output', system_name='customer_support', prompts='{"prompt": "prompt1"}', process_id=1),
-            #     TestCase(input='input2', output='output2', is_correct=False, reason='Incorrect output', system_name='customer_support', prompts='{"prompt": "prompt2"}', process_id=2),
+            #     TestCase(input='input1', output='output1', is_correct=True, reason='Correct output', agent_name='customer_support', prompts='{"prompt": "prompt1"}', process_id=1),
+            #     TestCase(input='input2', output='output2', is_correct=False, reason='Incorrect output', agent_name='customer_support', prompts='{"prompt": "prompt2"}', process_id=2),
             #     # Add more test cases as needed
             # ]
             # db.session.add_all(test_cases)
@@ -71,7 +71,7 @@ class TestCase(db.Model):
     output = Column(String)
     is_correct = Column(Boolean)
     reason = Column(String)
-    system_name = Column(String)
+    agent_name = Column(String)
     is_approved = Column(Boolean)
     ground_truth = Column(String)
     prompt_id = Column(Integer, ForeignKey('prompts.id'))  # New field for the relationship
@@ -91,7 +91,7 @@ class Prompt(db.Model):
     __tablename__ = 'prompts'
     id = Column(Integer, primary_key=True)
     prompt = Column(String)
-    prompt_name = Column(String)
+    agent_name = Column(String)
     model_name = Column(String)
     process_id = Column(Integer)
     test_cases = relationship("TestCase", back_populates="prompt")  # Relationship to TestCase
