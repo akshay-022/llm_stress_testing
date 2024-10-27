@@ -19,6 +19,7 @@ export interface TestCase {
   output: string;
   is_correct: boolean;
   reason: string;
+  ground_truth: string;
 }
 
 const TestCaseTable: React.FC<{
@@ -31,27 +32,20 @@ const TestCaseTable: React.FC<{
   );
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchTestCases = async () => {
-      try {
-        const response = await fetch(
-          `http://localhost:9000/prompts/${promptId}/testcases`
-        );
-        const data = await response.json();
-        setRowData(data);
+  const fetchTestCases = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:9000/prompts/${promptId}/testcases`
+      );
+      const data = await response.json();
+      setRowData(data.test_cases);
+      updateCorrectPercentage(data.percent_correct);
+    } catch (error) {
+      console.error("Failed to fetch test cases:", error);
+    }
+  };
 
-        // Calculate the percentage of correct values
-        const totalCases = data.length;
-        const correctCases = data.filter(
-          (testCase: TestCase) => testCase.is_correct
-        ).length;
-        const percentage = (correctCases / totalCases) * 100;
-        const roundedPercentage = Math.round(percentage * 100) / 100; // Round to 2 decimal places
-        updateCorrectPercentage(roundedPercentage);
-      } catch (error) {
-        console.error("Failed to fetch test cases:", error);
-      }
-    };
+  useEffect(() => {
     fetchTestCases();
   }, [promptId, updateCorrectPercentage]);
 
@@ -90,12 +84,8 @@ const TestCaseTable: React.FC<{
         .then((response) => response.json())
         .then((data) => {
           console.log("Successfully submitted:", data);
-          setRowData((prevData) =>
-            prevData.map((testCase) =>
-              testCase.id === data.id ? data : testCase
-            )
-          );
           setIsDrawerOpen(false);
+          fetchTestCases(); // Re-fetch test cases after successful submission
         })
         .catch((error) => {
           console.error("Failed to submit test case:", error);
@@ -109,9 +99,7 @@ const TestCaseTable: React.FC<{
     })
       .then((response) => {
         if (response.ok) {
-          setRowData((prevData) =>
-            prevData.filter((testCase) => testCase.id !== id)
-          );
+          fetchTestCases(); // Re-fetch test cases after successful deletion
         } else {
           throw new Error("Failed to delete test case");
         }
@@ -129,6 +117,7 @@ const TestCaseTable: React.FC<{
             <th className="p-3 text-left">ID</th>
             <th className="p-3 text-left">Input</th>
             <th className="p-3 text-left">Output</th>
+            <th className="p-3 text-left">Ground Truth</th>
             <th className="p-3 text-left">Is Correct</th>
             <th className="p-3 text-left">Reason</th>
             <th className="p-3 text-left">Actions</th>
@@ -144,6 +133,7 @@ const TestCaseTable: React.FC<{
               <td className="p-3">{testCase.id}</td>
               <td className="p-3">{testCase.input}</td>
               <td className="p-3">{testCase.output}</td>
+              <td className="p-3">{testCase.ground_truth}</td>
               <td className="p-3">
                 <span
                   className={`px-2 py-1 rounded ${
@@ -203,6 +193,21 @@ const TestCaseTable: React.FC<{
                 label="Output"
                 name="output"
                 value={selectedTestCase.output}
+                onChange={handleInputChange}
+                fullWidth
+                margin="normal"
+                variant="outlined"
+                multiline
+                rows={4}
+                InputLabelProps={{ className: "text-teal-300" }}
+                InputProps={{
+                  className: "text-white border-gray-600 bg-gray-800",
+                }}
+              />
+              <TextField
+                label="Ground Truth"
+                name="ground_truth"
+                value={selectedTestCase.ground_truth}
                 onChange={handleInputChange}
                 fullWidth
                 margin="normal"
