@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import TestCaseTable from "./TestCaseTable";
+import Header from "./Header";
+import { motion } from "framer-motion";
 
 interface Prompt {
   id: number;
@@ -12,7 +14,7 @@ interface Prompt {
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
+  const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
 
   useEffect(() => {
     const fetchPrompts = async () => {
@@ -31,33 +33,53 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     fetchPrompts();
   }, []);
 
-  const handlePromptClick = (promptId: number) => {
-    setSelectedPromptId(promptId);
+  const handlePromptClick = (prompt: Prompt) => {
+    setSelectedPrompt(prompt);
   };
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-64 bg-gray-800 text-white p-4 overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">Prompt Names</h2>
+    <div className="flex min-h-screen bg-gray-900">
+      <motion.aside
+        initial={{ x: -300 }}
+        animate={{ x: 0 }}
+        transition={{ type: "spring", stiffness: 100 }}
+        className="w-64 bg-gray-800 text-gray-300 p-6 overflow-y-auto"
+      >
+        <h2 className="text-2xl font-bold mb-6 text-teal-400">Prompt Names</h2>
         <ul className="space-y-2">
           {prompts.map((prompt) => (
-            <li
+            <motion.li
               key={prompt.id}
-              className="hover:bg-gray-700 p-2 rounded cursor-pointer"
-              onClick={() => handlePromptClick(prompt.id)}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              className="hover:bg-gray-700 p-3 rounded-md cursor-pointer transition-all duration-200"
+              onClick={() => handlePromptClick(prompt)}
             >
               {prompt.prompt_name}
-            </li>
+            </motion.li>
           ))}
         </ul>
-      </aside>
-      <div className="flex-1">
-        <main className="p-4">
-          {selectedPromptId ? (
-            <TestCaseTable promptId={selectedPromptId} />
-          ) : (
-            children
-          )}
+      </motion.aside>
+      <div className="flex-1 flex flex-col">
+        {selectedPrompt && (
+          <Header
+            promptName={selectedPrompt.prompt_name}
+            prompt={selectedPrompt.prompt}
+            modelName={selectedPrompt.model_name}
+          />
+        )}
+        <main className="p-8 flex-1">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {selectedPrompt ? (
+              <TestCaseTable promptId={selectedPrompt.id} />
+            ) : (
+              children
+            )}
+          </motion.div>
         </main>
       </div>
     </div>
