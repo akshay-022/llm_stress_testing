@@ -134,46 +134,40 @@ class LLMLogger:
 
         with self.app.app_context():
             entries = TestCase.query.order_by(TestCase.process_id, TestCase.id).all()
-
-            if not what_to_evaluate:
-                llm = OpenAI(temperature=0)
-                prompt_template = PromptTemplate(
-                    input_variables=["original_output", "new_output"],
-                    template="Compare these two outputs and determine if they are semantically equivalent:\n\nOriginal: {original_output}\n\nNew: {new_output}\n\nAre they equivalent? Answer with 'Yes' or 'No' and provide a brief explanation."
-                )
-                chain = LLMChain(llm=llm, prompt=prompt_template)
-            else : 
-                llm = OpenAI(temperature=0)
-                prompt_template = PromptTemplate(
-                    input_variables=["original_output", "new_output"],
-                    template=what_to_evaluate + "\n\nHere are the original and new outputs:\n\nOriginal: {original_output}\n\nNew: {new_output} Answer the question with 'Yes' or 'No' and provide a brief explanation."
-                )
-                chain = LLMChain(llm=llm, prompt=prompt_template)
             try:
                 for entry in entries:
-                    if entry.input:
+                    # Get distinct inputs
+                    distinct_inputs = set(entry.input for entry in entries if entry.input)
+                    
+                    for distinct_input in distinct_inputs:
+                        # Find the first entry with this input
+                        entry = next(e for e in entries if e.input == distinct_input)
+                        
                         # Simulate input
-                        print(f"Processing input for process_id {entry.process_id}, system {entry.system_name}")
+                        print(f"Processing distinct input for system {entry.system_name}")
                         # Here you would typically call the function that processes this input
-                        new_output = running_function(input=entry.input)
-                        new_entry = TestCase(process_id=self.process_id, input=entry.input, output=new_output, system_name=entry.system_name)
+                        new_output = running_function(input=distinct_input)
+                        new_entry = TestCase(process_id=self.process_id, input=distinct_input, output=new_output, system_name=entry.system_name)
                         db.session.add(new_entry)
                         db.session.commit()
+                        
                         # Compare output
                         result = chain.run(original_output=entry.output, new_output=new_output)
                         is_equivalent = result.strip().lower().startswith('yes')
                         
-                        print(f"Process ID: {entry.process_id}, System: {entry.system_name}")
+                        print(f"System: {entry.system_name}")
                         print(f"Original output: {entry.output}")
                         print(f"New output: {new_output}")
                         print(f"Equivalent: {is_equivalent}")
                         print(f"LLM explanation: {result}")
                         print("---")
 
-                        # Update the database entry
-                        entry.is_correct = is_equivalent
-                        if not is_equivalent:
-                            entry.reason = result
+                        # Update all entries with this input
+                        for e in entries:
+                            if e.input == distinct_input:
+                                e.is_correct = is_equivalent
+                                if not is_equivalent:
+                                    e.reason = result
                         db.session.commit()
 
             finally:
@@ -266,7 +260,7 @@ class LLMLogger:
             # And then maybe after this iteratively generate new prompts, see which ones it fails at the most, and especially focus on getting those right.
             return result
     
-    def generate_remaining_input_outputs(self, system_name: str):
+    def generate_remaining_input_outputs(self, system_name: str, prompt_to_aid_generation: str = None):
         from openai import OpenAI
         import json
         import os
@@ -293,6 +287,10 @@ class LLMLogger:
             Ensure that the new pairs maintain the same pattern or logic as the given examples.
             Format your response as a Python list of dictionaries, each containing 'input' and 'output' keys.
             """
+
+            if prompt_to_aid_generation:
+                prompt = "Keep the below guidelines in mind when generating the new input-output pairs:\n" + prompt_to_aid_generation + "\n\n" + prompt
+
             try:
                 response = client.chat.completions.create(
                     model="gpt-3.5-turbo",
