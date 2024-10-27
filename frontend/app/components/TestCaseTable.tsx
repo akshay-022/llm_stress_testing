@@ -19,6 +19,7 @@ export interface TestCase {
   output: string;
   is_correct: boolean;
   reason: string;
+  ground_truth: string;
 }
 
 const TestCaseTable: React.FC<{
@@ -116,6 +117,7 @@ const TestCaseTable: React.FC<{
             <th className="p-3 text-left">ID</th>
             <th className="p-3 text-left">Input</th>
             <th className="p-3 text-left">Output</th>
+            <th className="p-3 text-left">Ground Truth</th>
             <th className="p-3 text-left">Is Correct</th>
             <th className="p-3 text-left">Reason</th>
             <th className="p-3 text-left">Actions</th>
@@ -131,6 +133,7 @@ const TestCaseTable: React.FC<{
               <td className="p-3">{testCase.id}</td>
               <td className="p-3">{testCase.input}</td>
               <td className="p-3">{testCase.output}</td>
+              <td className="p-3">{testCase.ground_truth}</td>
               <td className="p-3">
                 <span
                   className={`px-2 py-1 rounded ${
@@ -190,6 +193,21 @@ const TestCaseTable: React.FC<{
                 label="Output"
                 name="output"
                 value={selectedTestCase.output}
+                onChange={handleInputChange}
+                fullWidth
+                margin="normal"
+                variant="outlined"
+                multiline
+                rows={4}
+                InputLabelProps={{ className: "text-teal-300" }}
+                InputProps={{
+                  className: "text-white border-gray-600 bg-gray-800",
+                }}
+              />
+              <TextField
+                label="Ground Truth"
+                name="ground_truth"
+                value={selectedTestCase.ground_truth}
                 onChange={handleInputChange}
                 fullWidth
                 margin="normal"

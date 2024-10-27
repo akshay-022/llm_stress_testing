@@ -169,7 +169,8 @@ def get_testcases_by_prompt(prompt_id):
             'output': test_case.output,
             'is_correct': test_case.is_correct,
             'reason': test_case.reason,
-            'prompt_id': test_case.prompt_id
+            'prompt_id': test_case.prompt_id,
+            'ground_truth': test_case.ground_truth
         }
         for test_case in test_cases
     ]
