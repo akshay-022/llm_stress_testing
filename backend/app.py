@@ -27,7 +27,8 @@ def add_sample_data():
         if not EvaluateOrNot.query.first():
             evaluate_or_not = EvaluateOrNot(is_evaluate=False, evaluation_id=1)
             db.session.add(evaluate_or_not)
-        if not TestCase.query.first():
+        #if not TestCase.query.first():
+        if False:
             test_cases = [
                 TestCase(input='input1', output='output1', is_correct=True, reason='Correct output', system_name='customer_support', prompts='{"prompt": "prompt1"}', process_id=1),
                 TestCase(input='input2', output='output2', is_correct=False, reason='Incorrect output', system_name='customer_support', prompts='{"prompt": "prompt2"}', process_id=2),
@@ -62,6 +63,14 @@ class EvaluateOrNot(db.Model):
     id = Column(Integer, primary_key=True)
     is_evaluate = Column(Boolean)
     evaluation_id = Column(Integer)
+
+class Prompt(db.Model):
+    __tablename__ = 'prompts'
+    id = Column(Integer, primary_key=True)
+    prompt = Column(String)
+    llm_name = Column(String)
+    model_name = Column(String)
+    process_id = Column(Integer)
 
 @app.route("/")
 def index():

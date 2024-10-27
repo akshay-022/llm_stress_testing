@@ -1,4 +1,4 @@
-from backend.app import db, TestCase, EvaluateOrNot
+from backend.app import db, TestCase, EvaluateOrNot, Prompt
 
 
 # Create a sample element in EvaluateOrNot that has is_evaluate = False
@@ -126,11 +126,18 @@ class LLMLogger:
             else:
                 print(f"No input found for run number {self.process_id} and system_name {system_name}")
 
-    def generate_new_prompt_outputs(self, running_function: str):
+    def save_prompt_to_table(self, prompt, llm_name, model_name):
+        with self.app.app_context():
+            new_entry = Prompt(prompt=prompt, llm_name=llm_name, model_name=model_name, process_id=self.process_id)
+            db.session.add(new_entry)
+            db.session.commit()
+
+    def generate_new_prompt_outputs(self, running_function, current_coder_prompts):
         from langchain.chains.llm import LLMChain
         from langchain_openai.chat_models import ChatOpenAI
         from langchain.prompts import PromptTemplate
         from langchain.chains import LLMChain
+        import json
 
         with self.app.app_context():
             entries = TestCase.query.order_by(TestCase.process_id, TestCase.id).all()
@@ -146,30 +153,10 @@ class LLMLogger:
                         # Simulate input
                         print(f"Processing distinct input for system {entry.system_name}")
                         # Here you would typically call the function that processes this input
-                        new_output = running_function(input=distinct_input)
-                        new_entry = TestCase(process_id=self.process_id, input=distinct_input, output=new_output, system_name=entry.system_name)
+                        new_output = running_function(inputs=distinct_input)
+                        new_entry = TestCase(process_id=self.process_id, input=distinct_input, output=new_output, system_name=entry.system_name, prompts=json.dumps(current_coder_prompts))
                         db.session.add(new_entry)
                         db.session.commit()
-                        
-                        # Compare output
-                        result = chain.run(original_output=entry.output, new_output=new_output)
-                        is_equivalent = result.strip().lower().startswith('yes')
-                        
-                        print(f"System: {entry.system_name}")
-                        print(f"Original output: {entry.output}")
-                        print(f"New output: {new_output}")
-                        print(f"Equivalent: {is_equivalent}")
-                        print(f"LLM explanation: {result}")
-                        print("---")
-
-                        # Update all entries with this input
-                        for e in entries:
-                            if e.input == distinct_input:
-                                e.is_correct = is_equivalent
-                                if not is_equivalent:
-                                    e.reason = result
-                        db.session.commit()
-
             finally:
                 db.session.close()
 
@@ -310,6 +297,7 @@ class LLMLogger:
 
                 # Append all the new pairs to the database
                 for pair in new_pairs:
+                    # No prompts key here means that these are llm generated samples, not based on a certain prompt.
                     new_entry = TestCase(process_id=self.process_id, input=pair['input'], output=pair['output'], system_name=system_name)
                     db.session.add(new_entry)
                 db.session.commit()
