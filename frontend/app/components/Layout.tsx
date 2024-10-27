@@ -71,6 +71,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex-1 flex flex-col">
         {selectedPrompt && (
           <Header
+            promptId={selectedPrompt.id}
             promptName={selectedPrompt.prompt_name}
             prompt={selectedPrompt.prompt}
             modelName={selectedPrompt.model_name}

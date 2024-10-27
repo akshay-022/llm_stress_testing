@@ -5,6 +5,8 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 
+from llm_service import execute_prompt_improvement
+
 basedir = os.path.abspath(os.path.dirname(__file__))
 print(basedir)
 
@@ -210,6 +212,29 @@ def delete_prompt(prompt_id):
     
     return jsonify({"message": f"Prompt with id {prompt_id} and its associated test cases have been deleted"}), 200
 
+@app.route("/prompts/<int:prompt_id>/improve", methods=["GET"])
+def get_incorrect_reasons(prompt_id):
+    # Fetch all test cases for the given prompt_id where is_correct is False
+    incorrect_test_cases = TestCase.query.filter_by(prompt_id=prompt_id, is_correct=False).all()
+
+    # Fetch the prompt for the given prompt_id
+    prompt = Prompt.query.get_or_404(prompt_id)
+    
+    # Check if the prompt exists
+    if not prompt:
+        return jsonify({"error": f"Prompt with id {prompt_id} not found"}), 404
+    
+    # Extract the prompt text from the prompt object
+    prompt_text = prompt.prompt
+    
+    # Extract reasons from incorrect test cases
+    incorrect_reasons = [test_case.reason for test_case in incorrect_test_cases if test_case.reason]
+
+    improved_prompt = execute_prompt_improvement(prompt_text, incorrect_reasons)
+    
+    return jsonify({
+        "improved_prompt": improved_prompt
+    }), 200
 
 
 
