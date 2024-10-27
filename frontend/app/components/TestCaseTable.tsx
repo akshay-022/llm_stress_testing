@@ -10,11 +10,10 @@ import {
   RadioGroup,
   FormControlLabel,
   FormLabel,
-  IconButton,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-interface TestCase {
+export interface TestCase {
   id: number;
   input: string;
   output: string;
@@ -22,7 +21,7 @@ interface TestCase {
   reason: string;
 }
 
-const TestCaseTable: React.FC = () => {
+const TestCaseTable: React.FC<{ promptId: number }> = ({ promptId }) => {
   const [rowData, setRowData] = useState<TestCase[]>([]);
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(
     null
@@ -30,13 +29,13 @@ const TestCaseTable: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:9000/input-output")
+    fetch(`http://localhost:9000/prompts/${promptId}/testcases`)
       .then((response) => response.json())
       .then((data: TestCase[]) => setRowData(data))
       .catch((error) => {
         console.error("Failed to fetch test cases:", error);
       });
-  }, [rowData]);
+  }, [promptId]);
 
   const handleRowClick = (testCase: TestCase) => {
     setSelectedTestCase(testCase);
@@ -47,9 +46,16 @@ const TestCaseTable: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>
   ) => {
     if (selectedTestCase) {
+      const { name, value } = e.target;
+      let updatedValue = value;
+
+      if (name === "is_correct") {
+        updatedValue = value === "true";
+      }
+
       setSelectedTestCase({
         ...selectedTestCase,
-        [e.target.name as string]: e.target.value,
+        [name as keyof TestCase]: updatedValue,
       });
     }
   };
@@ -66,7 +72,6 @@ const TestCaseTable: React.FC = () => {
         .then((response) => response.json())
         .then((data) => {
           console.log("Successfully submitted:", data);
-          // Update the table with the new data
           setRowData((prevData) =>
             prevData.map((testCase) =>
               testCase.id === data.id ? data : testCase
@@ -86,7 +91,6 @@ const TestCaseTable: React.FC = () => {
     })
       .then((response) => {
         if (response.ok) {
-          // Remove the deleted test case from the state
           setRowData((prevData) =>
             prevData.filter((testCase) => testCase.id !== id)
           );
@@ -100,98 +104,50 @@ const TestCaseTable: React.FC = () => {
   };
 
   return (
-    <div className="p-4">
-      <table className="min-w-full bg-gray-100 border border-gray-300 table-fixed">
-        <thead>
+    <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+      <table className="w-full text-gray-300">
+        <thead className="bg-gray-700 text-teal-400">
           <tr>
-            <th
-              className="py-2 px-4 border-b text-blue-800 text-left"
-              style={{ width: "10%" }}
-            >
-              ID
-            </th>
-            <th
-              className="py-2 px-4 border-b text-blue-800 text-left"
-              style={{ width: "30%" }}
-            >
-              Input
-            </th>
-            <th
-              className="py-2 px-4 border-b text-blue-800 text-left"
-              style={{ width: "30%" }}
-            >
-              Output
-            </th>
-            <th
-              className="py-2 px-4 border-b text-blue-800 text-left"
-              style={{ width: "10%" }}
-            >
-              Is Correct
-            </th>
-            <th
-              className="py-2 px-4 border-b text-blue-800 text-left"
-              style={{ width: "20%" }}
-            >
-              Reason
-            </th>
-            <th
-              className="py-2 px-4 border-b text-blue-800 text-left"
-              style={{ width: "10%" }}
-            >
-              Actions
-            </th>
+            <th className="p-3 text-left">ID</th>
+            <th className="p-3 text-left">Input</th>
+            <th className="p-3 text-left">Output</th>
+            <th className="p-3 text-left">Is Correct</th>
+            <th className="p-3 text-left">Reason</th>
+            <th className="p-3 text-left">Actions</th>
           </tr>
         </thead>
         <tbody>
           {rowData.map((testCase) => (
             <tr
               key={testCase.id}
-              className="hover:bg-gray-200 cursor-pointer"
+              className="border-t border-gray-700 hover:bg-gray-750 cursor-pointer"
               onClick={() => handleRowClick(testCase)}
             >
-              <td
-                className="py-2 px-4 border-b text-gray-900"
-                style={{ width: "10%" }}
-              >
-                {testCase.id}
+              <td className="p-3">{testCase.id}</td>
+              <td className="p-3">{testCase.input}</td>
+              <td className="p-3">{testCase.output}</td>
+              <td className="p-3">
+                <span
+                  className={`px-2 py-1 rounded ${
+                    testCase.is_correct
+                      ? "bg-green-800 text-green-200"
+                      : "bg-red-800 text-red-200"
+                  }`}
+                >
+                  {testCase.is_correct ? "True" : "False"}
+                </span>
               </td>
-              <td
-                className="py-2 px-4 border-b text-gray-900 break-words whitespace-normal"
-                style={{ width: "30%" }}
-              >
-                {testCase.input}
-              </td>
-              <td
-                className="py-2 px-4 border-b text-gray-900 break-words whitespace-normal"
-                style={{ width: "30%" }}
-              >
-                {testCase.output}
-              </td>
-              <td
-                className="py-2 px-4 border-b text-gray-900"
-                style={{ width: "10%" }}
-              >
-                {String(testCase.is_correct)}
-              </td>
-              <td
-                className="py-2 px-4 border-b text-gray-900 break-words whitespace-normal"
-                style={{ width: "20%" }}
-              >
-                {testCase.reason}
-              </td>
-              <td
-                className="py-2 px-4 border-b text-gray-900"
-                style={{ width: "10%" }}
-                onClick={(e) => e.stopPropagation()} // Prevent row click when clicking the delete button
-              >
-                <IconButton
-                  aria-label="delete"
-                  onClick={() => handleDelete(testCase.id)}
-                  size="small"
-                  color="error"
+              <td className="p-3">{testCase.reason}</td>
+              <td className="p-3">
+                <button
+                  className="text-red-400 hover:text-red-300"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(testCase.id);
+                  }}
                 >
                   <DeleteIcon />
-                </IconButton>
+                </button>
               </td>
             </tr>
           ))}
@@ -202,12 +158,13 @@ const TestCaseTable: React.FC = () => {
         anchor="right"
         open={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
+        classes={{ paper: "bg-gray-900 text-white w-full max-w-2xl" }}
       >
-        <div style={{ width: 300, padding: 20 }}>
+        <div className="p-6 h-full overflow-y-auto bg-gray-900">
           {selectedTestCase && (
             <>
-              <h2 className="text-xl font-bold mb-4">
-                Edit {selectedTestCase.input}
+              <h2 className="text-2xl font-bold mb-6 text-teal-400">
+                Edit Test Case
               </h2>
               <TextField
                 label="Input"
@@ -216,6 +173,13 @@ const TestCaseTable: React.FC = () => {
                 onChange={handleInputChange}
                 fullWidth
                 margin="normal"
+                variant="outlined"
+                multiline
+                rows={4}
+                InputLabelProps={{ className: "text-teal-300" }}
+                InputProps={{
+                  className: "text-white border-gray-600 bg-gray-800",
+                }}
               />
               <TextField
                 label="Output"
@@ -224,9 +188,18 @@ const TestCaseTable: React.FC = () => {
                 onChange={handleInputChange}
                 fullWidth
                 margin="normal"
+                variant="outlined"
+                multiline
+                rows={4}
+                InputLabelProps={{ className: "text-teal-300" }}
+                InputProps={{
+                  className: "text-white border-gray-600 bg-gray-800",
+                }}
               />
               <FormControl component="fieldset" margin="normal">
-                <FormLabel component="legend">Is Correct</FormLabel>
+                <FormLabel component="legend" className="text-teal-300">
+                  Is Correct
+                </FormLabel>
                 <RadioGroup
                   name="is_correct"
                   value={String(selectedTestCase.is_correct)}
@@ -235,13 +208,15 @@ const TestCaseTable: React.FC = () => {
                 >
                   <FormControlLabel
                     value="true"
-                    control={<Radio />}
+                    control={<Radio className="text-teal-400" />}
                     label="True"
+                    className="text-white"
                   />
                   <FormControlLabel
                     value="false"
-                    control={<Radio />}
+                    control={<Radio className="text-teal-400" />}
                     label="False"
+                    className="text-white"
                   />
                 </RadioGroup>
               </FormControl>
@@ -252,11 +227,19 @@ const TestCaseTable: React.FC = () => {
                 onChange={handleInputChange}
                 fullWidth
                 margin="normal"
+                variant="outlined"
+                multiline
+                rows={4}
+                InputLabelProps={{ className: "text-teal-300" }}
+                InputProps={{
+                  className: "text-white border-gray-600 bg-gray-800",
+                }}
               />
               <Button
                 variant="contained"
                 color="primary"
                 onClick={handleSubmit}
+                className="mt-6 bg-teal-500 hover:bg-teal-600 text-white"
               >
                 Submit
               </Button>
