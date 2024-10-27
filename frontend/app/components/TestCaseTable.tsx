@@ -21,7 +21,10 @@ export interface TestCase {
   reason: string;
 }
 
-const TestCaseTable: React.FC<{ promptId: number }> = ({ promptId }) => {
+const TestCaseTable: React.FC<{
+  promptId: number;
+  updateCorrectPercentage: (percentage: number) => void;
+}> = ({ promptId, updateCorrectPercentage }) => {
   const [rowData, setRowData] = useState<TestCase[]>([]);
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(
     null
@@ -29,13 +32,28 @@ const TestCaseTable: React.FC<{ promptId: number }> = ({ promptId }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
-    fetch(`http://localhost:9000/prompts/${promptId}/testcases`)
-      .then((response) => response.json())
-      .then((data: TestCase[]) => setRowData(data))
-      .catch((error) => {
+    const fetchTestCases = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:9000/prompts/${promptId}/testcases`
+        );
+        const data = await response.json();
+        setRowData(data);
+
+        // Calculate the percentage of correct values
+        const totalCases = data.length;
+        const correctCases = data.filter(
+          (testCase: TestCase) => testCase.is_correct
+        ).length;
+        const percentage = (correctCases / totalCases) * 100;
+        const roundedPercentage = Math.round(percentage * 100) / 100; // Round to 2 decimal places
+        updateCorrectPercentage(roundedPercentage);
+      } catch (error) {
         console.error("Failed to fetch test cases:", error);
-      });
-  }, [promptId]);
+      }
+    };
+    fetchTestCases();
+  }, [promptId, updateCorrectPercentage]);
 
   const handleRowClick = (testCase: TestCase) => {
     setSelectedTestCase(testCase);
