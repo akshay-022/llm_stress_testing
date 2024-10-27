@@ -1,9 +1,14 @@
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
-
 import os
-
 from dotenv import load_dotenv
+
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from library import LLMLogger
+from backend.app import app
+
+logger = LLMLogger(app)
 
 EXAMPLE_CUSTOMER_SUPPORT_DOC = """
 HOW TO CONTACT US
@@ -44,7 +49,9 @@ Respond politely to the user's message: {user_message}."""
 
 def answer_user_question(user_message: str) -> str:
     prompt = construct_customer_support_prompt(user_message)
+    logger.save_input(prompt, "customer_support")
     response = dumbest_gemini_model.generate_content(prompt, safety_settings=SAFETY_SETTINGS)
+    logger.save_output(response.text, True, "customer_support")
     return response.text
 
 if __name__ == "__main__":

@@ -26,13 +26,16 @@ def add_sample_data():
 
         # Sample test cases
         test_cases = [
-            TestCase(input='input1', output='output1', is_correct=True, reason='Correct output'),
-            TestCase(input='input2', output='output2', is_correct=False, reason='Incorrect output'),
+            TestCase(input='input1', output='output1', is_correct=True, reason='Correct output', system_name='customer_support', prompts='{"prompt": "prompt1"}', process_id=1),
+            TestCase(input='input2', output='output2', is_correct=False, reason='Incorrect output', system_name='customer_support', prompts='{"prompt": "prompt2"}', process_id=2),
             # Add more test cases as needed
         ]
 
+        evaluate_or_not = EvaluateOrNot(is_evaluate=False, evaluation_id=1)
+
         # Add test cases to the session
         db.session.add_all(test_cases)
+        db.session.add(evaluate_or_not)
         # Commit the session to the database
         db.session.commit()
 
@@ -42,14 +45,24 @@ class TestCase(db.Model):
     __tablename__ = 'test_cases'
 
     id = Column(Integer, primary_key=True)
-    input = Column(String, nullable=False)
-    output = Column(String, nullable=False)
-    is_correct = Column(Boolean, nullable=False)
+    process_id = Column(Integer)
+    input = Column(String)
+    output = Column(String)
+    prompts = Column(String)    #Will be a dumped json dictionary with the prompts used
+    is_correct = Column(Boolean)
     reason = Column(String)
+    system_name = Column(String)
+    is_approved = Column(Boolean)
 
     def __repr__(self):
         return f'<TestCase {self.id}, {self.input}, {self.output}, {self.is_correct}, {self.reason}>'
 
+# This must have just one entry, where it says whether to evaluate or not
+class EvaluateOrNot(db.Model):
+    __tablename__ = 'evaluate_or_not'
+    id = Column(Integer, primary_key=True)
+    is_evaluate = Column(Boolean)
+    evaluation_id = Column(Integer)
 
 @app.route("/")
 def index():
