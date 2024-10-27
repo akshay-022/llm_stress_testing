@@ -126,8 +126,9 @@ class LLMLogger:
             else:
                 print(f"No input found for run number {self.process_id} and system_name {system_name}")
 
-    def evaluate(self, what_to_evaluate: str, running_function: str):
-        from langchain.llms import OpenAI
+    def generate_new_prompt_outputs(self, running_function: str):
+        from langchain.chains.llm import LLMChain
+        from langchain_openai.chat_models import ChatOpenAI
         from langchain.prompts import PromptTemplate
         from langchain.chains import LLMChain
 
@@ -154,7 +155,10 @@ class LLMLogger:
                         # Simulate input
                         print(f"Processing input for process_id {entry.process_id}, system {entry.system_name}")
                         # Here you would typically call the function that processes this input
-                        new_output = running_function(prompts=entry.prompts, input=entry.input)
+                        new_output = running_function(input=entry.input)
+                        new_entry = TestCase(process_id=self.process_id, input=entry.input, output=new_output, system_name=entry.system_name)
+                        db.session.add(new_entry)
+                        db.session.commit()
                         # Compare output
                         result = chain.run(original_output=entry.output, new_output=new_output)
                         is_equivalent = result.strip().lower().startswith('yes')
@@ -174,6 +178,55 @@ class LLMLogger:
 
             finally:
                 db.session.close()
+
+    def evaluate_latest_prompt_outputs(self, what_to_evaluate: str):
+        from langchain.llms import OpenAI
+        from langchain.prompts import PromptTemplate
+        from langchain_openai.chat_models import ChatOpenAI
+        from langchain.prompts import PromptTemplate
+        from langchain.chains import LLMChain
+
+        with self.app.app_context():
+            entries = TestCase.query.order_by(TestCase.process_id, TestCase.id).all()
+
+            if not what_to_evaluate:
+                llm = OpenAI(temperature=0)
+                prompt_template = PromptTemplate(
+                    input_variables=["original_output", "new_output"],
+                    template="Compare these two outputs and determine if they are semantically equivalent:\n\nOriginal: {original_output}\n\nNew: {new_output}\n\nAre they equivalent? Answer with 'Yes' or 'No' and provide a brief explanation."
+                )
+                chain = LLMChain(llm=llm, prompt=prompt_template)
+            else : 
+                llm = OpenAI(temperature=0)
+                prompt_template = PromptTemplate(
+                    input_variables=["original_output", "new_output"],
+                    template=what_to_evaluate + "\n\nHere are the original and new outputs:\n\nOriginal: {original_output}\n\nNew: {new_output} Answer the question with 'Yes' or 'No' and provide a brief explanation."
+                )
+                chain = LLMChain(llm=llm, prompt=prompt_template)
+            try:
+                for entry in entries:
+                    if entry.input:
+                        new_output = entry.output
+                        # Compare output
+                        result = chain.run(original_output=entry.ground_truth, new_output=new_output)
+                        is_equivalent = result.strip().lower().startswith('yes')
+                        
+                        print(f"Process ID: {entry.process_id}, System: {entry.system_name}")
+                        print(f"Original output: {entry.output}")
+                        print(f"New output: {new_output}")
+                        print(f"Equivalent: {is_equivalent}")
+                        print(f"LLM explanation: {result}")
+                        print("---")
+
+                        # Update the database entry
+                        entry.is_correct = is_equivalent
+                        if not is_equivalent:
+                            entry.reason = result
+                        db.session.commit()
+
+            finally:
+                db.session.close()
+        
 
     def get_best_prompts(self, system_name: str):
         from langchain.llms import OpenAI
@@ -214,10 +267,15 @@ class LLMLogger:
             return result
     
     def generate_remaining_input_outputs(self, system_name: str):
-        from langchain.llms import OpenAI
-        from langchain.prompts import PromptTemplate
-        from langchain.chains import LLMChain
+        from openai import OpenAI
         import json
+        import os
+        from dotenv import load_dotenv
+
+        # Load environment variables and set OpenAI API key
+        load_dotenv()
+        api_key=os.getenv("OPENAI_API_KEY")
+        client = OpenAI(api_key=api_key)
 
         with self.app.app_context():
             correct_entries = TestCase.query.filter_by(system_name=system_name, is_correct=True).all()
@@ -227,24 +285,37 @@ class LLMLogger:
 
             correct_pairs = [{"input": entry.input, "output": entry.output} for entry in correct_entries]
 
-            llm = OpenAI(temperature=0.7)
-            prompt_template = PromptTemplate(
-                input_variables=["correct_pairs"],
-                template="""
-                Given the following correct input-output pairs:
-                {correct_pairs}
+            prompt = f"""
+            Given the following correct input-output pairs:
+            {json.dumps(correct_pairs, indent=2)}
 
-                Generate 5 new input-output pairs that are similar in style and complexity, but different in content. 
-                Ensure that the new pairs maintain the same pattern or logic as the given examples.
-                Format your response as a Python list of dictionaries, each containing 'input' and 'output' keys.
-                """
-            )
-            chain = LLMChain(llm=llm, prompt=prompt_template)
-
-            result = chain.run(correct_pairs=json.dumps(correct_pairs, indent=2))
-            
+            Generate 5 new input-output pairs that are similar in style and complexity, but different in content. 
+            Ensure that the new pairs maintain the same pattern or logic as the given examples.
+            Format your response as a Python list of dictionaries, each containing 'input' and 'output' keys.
+            """
             try:
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant that generates input-output pairs."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.0
+                )
+                
+                result = response.choices[0].message.content
+            
+                #Trim result to only the part within '''json'''
+                #result = result.split('```json')[1].split('```')[0]
+
                 new_pairs = json.loads(result)
+
+                # Append all the new pairs to the database
+                for pair in new_pairs:
+                    new_entry = TestCase(process_id=self.process_id, input=pair['input'], output=pair['output'], system_name=system_name)
+                    db.session.add(new_entry)
+                db.session.commit()
+
                 return new_pairs
             except json.JSONDecodeError:
                 print("Error: Unable to parse the generated output as JSON.")

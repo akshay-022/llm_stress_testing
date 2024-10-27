@@ -24,18 +24,16 @@ def add_sample_data():
         # Create the database tables if they don't exist
         db.create_all()
 
-        # Sample test cases
-        test_cases = [
-            TestCase(input='input1', output='output1', is_correct=True, reason='Correct output', system_name='customer_support', prompts='{"prompt": "prompt1"}', process_id=1),
-            TestCase(input='input2', output='output2', is_correct=False, reason='Incorrect output', system_name='customer_support', prompts='{"prompt": "prompt2"}', process_id=2),
-            # Add more test cases as needed
-        ]
-
-        evaluate_or_not = EvaluateOrNot(is_evaluate=False, evaluation_id=1)
-
-        # Add test cases to the session
-        db.session.add_all(test_cases)
-        db.session.add(evaluate_or_not)
+        if not EvaluateOrNot.query.first():
+            evaluate_or_not = EvaluateOrNot(is_evaluate=False, evaluation_id=1)
+            db.session.add(evaluate_or_not)
+        if not TestCase.query.first():
+            test_cases = [
+                TestCase(input='input1', output='output1', is_correct=True, reason='Correct output', system_name='customer_support', prompts='{"prompt": "prompt1"}', process_id=1),
+                TestCase(input='input2', output='output2', is_correct=False, reason='Incorrect output', system_name='customer_support', prompts='{"prompt": "prompt2"}', process_id=2),
+                # Add more test cases as needed
+            ]
+            db.session.add_all(test_cases)
         # Commit the session to the database
         db.session.commit()
 
@@ -53,6 +51,7 @@ class TestCase(db.Model):
     reason = Column(String)
     system_name = Column(String)
     is_approved = Column(Boolean)
+    ground_truth = Column(String)
 
     def __repr__(self):
         return f'<TestCase {self.id}, {self.input}, {self.output}, {self.is_correct}, {self.reason}>'
@@ -115,5 +114,5 @@ def update_test_case():
 
 
 if __name__ == "__main__":
-    # add_sample_data()
+    add_sample_data()
     app.run(debug=True, port=9000)

@@ -9,6 +9,10 @@ from library import LLMLogger
 from backend.app import app
 
 logger = LLMLogger(app)
+all_prompt = {
+
+    "customer_support": "You are a helpful customer support assistant with tweet length response that responds based on the customer support documentation: {EXAMPLE_CUSTOMER_SUPPORT_DOC}. Your response should be empathetic and assuring that the team is taking the matter very seriously. Respond politely to the user's message: {{user_message}}."
+}
 
 EXAMPLE_CUSTOMER_SUPPORT_DOC = """
 HOW TO CONTACT US
@@ -47,7 +51,7 @@ Your response should be empathetic and assuring that the team is taking the matt
 Respond politely to the user's message: {user_message}."""
 
 
-def answer_user_question(user_message: str) -> str:
+def answer_user_question(user_message: str, hardcoded_prompts: str = None) -> str:
     prompt = construct_customer_support_prompt(user_message)
     logger.save_input(prompt, "customer_support")
     response = dumbest_gemini_model.generate_content(prompt, safety_settings=SAFETY_SETTINGS)
@@ -55,4 +59,9 @@ def answer_user_question(user_message: str) -> str:
     return response.text
 
 if __name__ == "__main__":
-    print(answer_user_question("How can I get in contact with MarkLogic?")) # EVAL: Make sure it is less than 50 characters
+    logger.start_process_here()
+
+    #print(answer_user_question("How can I get in contact with MarkLogic?")) # EVAL: Make sure it is less than 50 characters
+
+    #logger.evaluate_latest_prompt_outputs("customer_support")
+    logger.generate_remaining_input_outputs("customer_support")
