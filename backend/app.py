@@ -33,11 +33,8 @@ def add_sample_data():
         # Check if sample prompt already exists
         existing_prompt = Prompt.query.filter_by(agent_name="customer_support").first()
         if existing_prompt is None:
-            prompt = """
-            You are a helpful customer support assistant with tweet length response that responds based on the customer support documentation: {{EXAMPLE_CUSTOMER_SUPPORT_DOC}}. 
-            Your response should be empathetic and assuring that the team is taking the matter very seriously. 
-            Respond politely to the user's message: {{user_message}}."""
-            
+            prompt = """\nYou are a helpful customer support assistant with tweet length response that responds based on the customer support documentation: {{EXAMPLE_CUSTOMER_SUPPORT_DOC}}. \nYour response should be empathetic and assuring that the team is taking the matter very seriously. \nRespond politely to the user's message: {{user_message}}."""
+            prompt = prompt.strip()
             sample_prompt = Prompt(
                 prompt=prompt,
                 agent_name="customer_support",

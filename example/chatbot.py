@@ -65,8 +65,11 @@ def answer_user_question(inputs: str) -> str:
 if __name__ == "__main__":
     logger.start_process_here()
 
-    #print(answer_user_question("How can I get in contact with MarkLogic?")) # EVAL: Make sure it is less than 50 characters
-    #logger.generate_remaining_input_outputs(agent_name="customer_support", number_of_items_to_generate=5, prompt_to_aid_generation="Ensure you only stay within the bounds of the customer support documentation.")
+    print(answer_user_question("How can I get in contact with MarkLogic?")) # EVAL: Make sure it is less than 50 characters
+    #print(answer_user_question("Who do I contact if I have some problems with my account?"))
+    logger.generate_remaining_input_outputs(agent_name="customer_support", number_of_items_to_generate=5, prompt_to_aid_generation="Ensure you only stay within the bounds of the customer support documentation.")
+    
+    
     prompt = """
         You are a very rude customer support assistant with tweet length response that responds based on the customer support documentation: {{EXAMPLE_CUSTOMER_SUPPORT_DOC}}. 
         Your response should be empathetic and assuring that the team is taking the matter very seriously. 

@@ -131,7 +131,7 @@ class LLMLogger:
             return None
         # if exact same agent name and prompt already exists, return the id
         with self.app.app_context():
-            existing_prompt = Prompt.query.filter_by(agent_name=agent_name, prompt = prompt).first()
+            existing_prompt = Prompt.query.filter_by(agent_name=agent_name, prompt = prompt.strip()).first()
             if existing_prompt:
                 return existing_prompt.id
 
@@ -140,7 +140,7 @@ class LLMLogger:
             existing_entry = Prompt.query.filter_by(agent_name=agent_name).first()
             if existing_entry:
                 model_name = existing_entry.model_name
-            existing_entry_complete = Prompt.query.filter_by(agent_name=agent_name, model_name=model_name, process_id=self.process_id, prompt = prompt).first()
+            existing_entry_complete = Prompt.query.filter_by(agent_name=agent_name, model_name=model_name, process_id=self.process_id, prompt = prompt.strip()).first()
             if not existing_entry_complete:
                 new_entry = Prompt(prompt=prompt, agent_name=agent_name, model_name=model_name, process_id=self.process_id)
                 db.session.add(new_entry)
@@ -224,6 +224,9 @@ class LLMLogger:
                         entry.is_correct = is_equivalent
                         if not is_equivalent:
                             entry.reason = result
+                        entry.how_to_evaluate = how_to_evaluate
+                        if not how_to_evaluate:
+                            entry.how_to_evaluate = "Compare the ground truth, new outputs for semantic equivalence."
                         db.session.commit()
 
             finally:
@@ -242,7 +245,7 @@ class LLMLogger:
     def get_reliability_score(self, agent_name: str, prompt_id: int):
         with self.app.app_context():
             entries = TestCase.query.filter_by(agent_name=agent_name, prompt_id=prompt_id).all()
-            correct_entries = [entry for entry in entries if entry.is_correct]
+            correct_entries = [entry for entry in entries if entry.is_correct and 'equivalence' in entry.how_to_evaluate.lower()]
             return 100 * len(correct_entries) / len(entries)
 
     def get_best_prompts(self, agent_name: str):
@@ -342,8 +345,11 @@ class LLMLogger:
 
                 # Append all the new pairs to the database
                 for pair in new_pairs:
+                    # Get the highest prior prompt_id for the agent_name
+                    highest_prompt = db.session.query(TestCase).filter_by(agent_name=agent_name).order_by(TestCase.prompt_id.desc()).first()
+                    prompt_id = highest_prompt.prompt_id if highest_prompt else None
                     # No prompts key here means that these are llm generated samples, not based on a certain prompt.
-                    new_entry = TestCase(process_id=self.process_id, input=pair['input'], output=pair['output'], agent_name=agent_name)
+                    new_entry = TestCase(process_id=self.process_id, input=pair['input'], output=pair['output'], agent_name=agent_name, prompt_id = prompt_id)
                     db.session.add(new_entry)
                 db.session.commit()
 
