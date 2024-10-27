@@ -114,7 +114,8 @@ def get_test_cases():
             'input': test_case.input,
             'output': test_case.output,
             'is_correct': test_case.is_correct,
-            'reason': test_case.reason
+            'reason': test_case.reason,
+            'ground_truth': test_case.ground_truth
         }
         for test_case in test_cases
     ]
@@ -137,6 +138,7 @@ def update_test_case():
     test_case.output = data['output']
     test_case.is_correct = data['is_correct']
     test_case.reason = data['reason']
+    test_case.ground_truth = data['ground_truth']
     
     db.session.commit()
     
@@ -145,7 +147,8 @@ def update_test_case():
         'input': test_case.input,
         'output': test_case.output,
         'is_correct': test_case.is_correct,
-        'reason': test_case.reason
+        'reason': test_case.reason,
+        'ground_truth': test_case.ground_truth
     }), 200
 
 @app.route("/prompts", methods=["GET"])
