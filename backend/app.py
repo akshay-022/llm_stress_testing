@@ -151,7 +151,7 @@ def get_prompts():
         {
             'id': prompt.id,
             'prompt': prompt.prompt,
-            'prompt_name': prompt.prompt_name,
+            'prompt_name': prompt.agent_name,
             'model_name': prompt.model_name,
             'process_id': prompt.process_id
         }
@@ -173,7 +173,33 @@ def get_testcases_by_prompt(prompt_id):
         }
         for test_case in test_cases
     ]
-    return jsonify(result)
+    
+    # Calculate the percentage of correct test cases
+    total_cases = len(test_cases)
+    correct_cases = sum(1 for test_case in test_cases if test_case.is_correct)
+    percent_correct = (correct_cases / total_cases) * 100 if total_cases > 0 else 0
+    
+    # Add the percentage to the response
+    response = {
+        'test_cases': result,
+        'percent_correct': round(percent_correct, 2)
+    }
+    
+    return jsonify(response)
+
+@app.route("/prompts/<int:prompt_id>", methods=["DELETE"])
+def delete_prompt(prompt_id):
+    prompt = Prompt.query.get_or_404(prompt_id)
+    
+    # Delete associated test cases
+    TestCase.query.filter_by(prompt_id=prompt_id).delete()
+    
+    # Delete the prompt
+    db.session.delete(prompt)
+    db.session.commit()
+    
+    return jsonify({"message": f"Prompt with id {prompt_id} and its associated test cases have been deleted"}), 200
+
 
 
 

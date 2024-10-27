@@ -31,27 +31,20 @@ const TestCaseTable: React.FC<{
   );
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchTestCases = async () => {
-      try {
-        const response = await fetch(
-          `http://localhost:9000/prompts/${promptId}/testcases`
-        );
-        const data = await response.json();
-        setRowData(data);
+  const fetchTestCases = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:9000/prompts/${promptId}/testcases`
+      );
+      const data = await response.json();
+      setRowData(data.test_cases);
+      updateCorrectPercentage(data.percent_correct);
+    } catch (error) {
+      console.error("Failed to fetch test cases:", error);
+    }
+  };
 
-        // Calculate the percentage of correct values
-        const totalCases = data.length;
-        const correctCases = data.filter(
-          (testCase: TestCase) => testCase.is_correct
-        ).length;
-        const percentage = (correctCases / totalCases) * 100;
-        const roundedPercentage = Math.round(percentage * 100) / 100; // Round to 2 decimal places
-        updateCorrectPercentage(roundedPercentage);
-      } catch (error) {
-        console.error("Failed to fetch test cases:", error);
-      }
-    };
+  useEffect(() => {
     fetchTestCases();
   }, [promptId, updateCorrectPercentage]);
 
@@ -90,12 +83,8 @@ const TestCaseTable: React.FC<{
         .then((response) => response.json())
         .then((data) => {
           console.log("Successfully submitted:", data);
-          setRowData((prevData) =>
-            prevData.map((testCase) =>
-              testCase.id === data.id ? data : testCase
-            )
-          );
           setIsDrawerOpen(false);
+          fetchTestCases(); // Re-fetch test cases after successful submission
         })
         .catch((error) => {
           console.error("Failed to submit test case:", error);
@@ -109,9 +98,7 @@ const TestCaseTable: React.FC<{
     })
       .then((response) => {
         if (response.ok) {
-          setRowData((prevData) =>
-            prevData.filter((testCase) => testCase.id !== id)
-          );
+          fetchTestCases(); // Re-fetch test cases after successful deletion
         } else {
           throw new Error("Failed to delete test case");
         }
