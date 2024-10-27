@@ -75,6 +75,7 @@ class TestCase(db.Model):
     agent_name = Column(String)
     is_approved = Column(Boolean)
     ground_truth = Column(String)
+    how_to_evaluate = Column(String)
     prompt_id = Column(Integer, ForeignKey('prompts.id'))  # New field for the relationship
     prompt = relationship("Prompt", back_populates="test_cases")  # Relationship to Prompt
 
@@ -111,7 +112,9 @@ def get_test_cases():
             'input': test_case.input,
             'output': test_case.output,
             'is_correct': test_case.is_correct,
-            'reason': test_case.reason
+            'reason': test_case.reason,
+            'ground_truth': test_case.ground_truth,
+            'how_to_evaluate': test_case.how_to_evaluate
         }
         for test_case in test_cases
     ]
@@ -134,6 +137,8 @@ def update_test_case():
     test_case.output = data['output']
     test_case.is_correct = data['is_correct']
     test_case.reason = data['reason']
+    test_case.ground_truth = data['ground_truth']
+    test_case.how_to_evaluate = data['how_to_evaluate']
     
     db.session.commit()
     
@@ -142,7 +147,9 @@ def update_test_case():
         'input': test_case.input,
         'output': test_case.output,
         'is_correct': test_case.is_correct,
-        'reason': test_case.reason
+        'reason': test_case.reason,
+        'ground_truth': test_case.ground_truth,
+        'how_to_evaluate': test_case.how_to_evaluate
     }), 200
 
 @app.route("/prompts", methods=["GET"])
@@ -171,7 +178,8 @@ def get_testcases_by_prompt(prompt_id):
             'is_correct': test_case.is_correct,
             'reason': test_case.reason,
             'prompt_id': test_case.prompt_id,
-            'ground_truth': test_case.ground_truth
+            'ground_truth': test_case.ground_truth,
+            'how_to_evaluate': test_case.how_to_evaluate
         }
         for test_case in test_cases
     ]

@@ -20,6 +20,7 @@ export interface TestCase {
   is_correct: boolean;
   reason: string;
   ground_truth: string;
+  how_to_evaluate: string;
 }
 
 const TestCaseTable: React.FC<{
@@ -120,6 +121,7 @@ const TestCaseTable: React.FC<{
             <th className="p-3 text-left">Ground Truth</th>
             <th className="p-3 text-left">Is Correct</th>
             <th className="p-3 text-left">Reason</th>
+            <th className="p-3 text-left">How to Evaluate</th>
             <th className="p-3 text-left">Actions</th>
           </tr>
         </thead>
@@ -146,6 +148,7 @@ const TestCaseTable: React.FC<{
                 </span>
               </td>
               <td className="p-3">{testCase.reason}</td>
+              <td className="p-3">{testCase.how_to_evaluate}</td>
               <td className="p-3">
                 <button
                   className="text-red-400 hover:text-red-300"
@@ -247,6 +250,21 @@ const TestCaseTable: React.FC<{
                 label="Reason"
                 name="reason"
                 value={selectedTestCase.reason}
+                onChange={handleInputChange}
+                fullWidth
+                margin="normal"
+                variant="outlined"
+                multiline
+                rows={4}
+                InputLabelProps={{ className: "text-teal-300" }}
+                InputProps={{
+                  className: "text-white border-gray-600 bg-gray-800",
+                }}
+              />
+              <TextField
+                label="How to Evaluate"
+                name="how_to_evaluate"
+                value={selectedTestCase.how_to_evaluate}
                 onChange={handleInputChange}
                 fullWidth
                 margin="normal"
