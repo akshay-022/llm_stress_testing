@@ -144,6 +144,37 @@ def update_test_case():
         'reason': test_case.reason
     }), 200
 
+@app.route("/prompts", methods=["GET"])
+def get_prompts():
+    prompts = Prompt.query.all()
+    result = [
+        {
+            'id': prompt.id,
+            'prompt': prompt.prompt,
+            'prompt_name': prompt.prompt_name,
+            'model_name': prompt.model_name,
+            'process_id': prompt.process_id
+        }
+        for prompt in prompts
+    ]
+    return jsonify(result)
+
+@app.route("/prompts/<int:prompt_id>/testcases", methods=["GET"])
+def get_testcases_by_prompt(prompt_id):
+    test_cases = TestCase.query.filter_by(prompt_id=prompt_id).all()
+    result = [
+        {
+            'id': test_case.id,
+            'input': test_case.input,
+            'output': test_case.output,
+            'is_correct': test_case.is_correct,
+            'reason': test_case.reason,
+            'prompt_id': test_case.prompt_id
+        }
+        for test_case in test_cases
+    ]
+    return jsonify(result)
+
 
 
 if __name__ == "__main__":

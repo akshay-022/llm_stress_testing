@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-interface TestCase {
+export interface TestCase {
   id: number;
   input: string;
   output: string;
@@ -22,7 +22,7 @@ interface TestCase {
   reason: string;
 }
 
-const TestCaseTable: React.FC = () => {
+const TestCaseTable: React.FC<{ promptId: number }> = ({ promptId }) => {
   const [rowData, setRowData] = useState<TestCase[]>([]);
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(
     null
@@ -30,13 +30,13 @@ const TestCaseTable: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:9000/input-output")
+    fetch(`http://localhost:9000/prompts/${promptId}/testcases`)
       .then((response) => response.json())
       .then((data: TestCase[]) => setRowData(data))
       .catch((error) => {
         console.error("Failed to fetch test cases:", error);
       });
-  }, [rowData]);
+  }, [promptId, rowData]);
 
   const handleRowClick = (testCase: TestCase) => {
     setSelectedTestCase(testCase);
