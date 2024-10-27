@@ -143,6 +143,7 @@ class LLMLogger:
                 model_name = existing_entry.model_name
             new_entry = Prompt(prompt=prompt, agent_name=agent_name, model_name=model_name, process_id=self.process_id)
             db.session.add(new_entry)
+            db.session.commit()
             return new_entry.id
 
     # This is for when you want to generate new outputs for the current prompt in code and all inputs to the same agent_name previously.
@@ -175,6 +176,7 @@ class LLMLogger:
             db.session.commit()
             db.session.close()
 
+    # Applies the evaluation metric to the latest prompt outputs.
     def evaluate_latest_prompt_outputs(self, how_to_evaluate: str, who_to_evaluate: str, prompt_id: int):
         if not self.do_db_actions:
             return None
@@ -229,9 +231,12 @@ class LLMLogger:
     def evaluate_complete_unit_test(self, running_function, prompt, who_to_evaluate: str, how_to_evaluate: str = None):
         if not self.do_db_actions:
             return None
+        from prompt_config import Config
+        Config[who_to_evaluate] = prompt
         prompt_id = self.save_prompt_to_table(prompt, who_to_evaluate, "gemini-1.5-flash")
-        self.generate_new_prompt_outputs(running_function, prompt_id)
-        self.evaluate_latest_prompt_outputs(how_to_evaluate, who_to_evaluate, prompt_id)
+        self.generate_new_prompt_outputs(running_function = running_function, prompt_id = prompt_id)
+        self.evaluate_latest_prompt_outputs(how_to_evaluate = how_to_evaluate, who_to_evaluate = who_to_evaluate, prompt_id = prompt_id)
+        return self.get_reliability_score(who_to_evaluate, prompt_id)
 
     def get_reliability_score(self, agent_name: str, prompt_id: int):
         with self.app.app_context():
@@ -277,6 +282,15 @@ class LLMLogger:
             # And then maybe after this iteratively generate new prompts, see which ones it fails at the most, and especially focus on getting those right.
             return result
     
+    def fill_template(self, template: str, **kwargs) -> str:
+        # Function to replace placeholders with actual values
+        def fill_template(template, **kwargs):
+            return template.format(**{k: '{' + k + '}' for k in kwargs.keys()}).format(**kwargs)
+        # Fill the template with actual values
+        prompt_to_return = fill_template(template, **kwargs)
+        return prompt_to_return
+
+
     def generate_remaining_input_outputs(self, agent_name: str, prompt_to_aid_generation: str = None):
         from openai import OpenAI
         import json
